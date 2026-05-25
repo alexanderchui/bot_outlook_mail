@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Outlook 邮件中枢</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    :root {
+      --bg: #08080f;
+      --bg2: #0e0e18;
+      --glass: rgba(255, 255, 255, 0.04);
+      --glass-hi: rgba(255, 255, 255, 0.08);
+      --border: rgba(255, 255, 255, 0.07);
+      --border-hi: rgba(255, 255, 255, 0.14);
+      --accent: #0a84ff;
+      --accent2: #5e5ce6;
+      --accent-glow: rgba(10, 132, 255, 0.3);
+      --green: #30d158;
+      --red: #ff453a;
+      --orange: #ff9f0a;
+      --text: #f0f0f5;
+      --text2: rgba(240, 240, 245, 0.45);
+      --text3: rgba(240, 240, 245, 0.25);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --radius-xs: 8px;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    @keyframes modalIn {
+      from {
+        opacity: 0;
+        transform: scale(0.92) translateY(24px)
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0)
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .4
+      }
+    }
+
+    @keyframes cardGlow {
+      0% {
+        box-shadow: 0 0 20px rgba(10, 132, 255, 0.08)
+      }
+
+      50% {
+        box-shadow: 0 0 35px rgba(10, 132, 255, 0.15)
+      }
+
+      100% {
+        box-shadow: 0 0 20px rgba(10, 132, 255, 0.08)
+      }
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(ellipse at 30% 20%, rgba(10, 132, 255, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse at 70% 80%, rgba(94, 92, 230, 0.04) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      width: 90%;
+      max-width: 2000px;
+      margin: 0 auto;
+      padding: 24px 28px 60px;
+      position: relative;
+      z-index: 1
+    }
+
+    /* ===== Header ===== */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      animation: fadeUp .45s ease both;
+      padding: 16px 24px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(30px) saturate(180%);
+      -webkit-backdrop-filter: blur(30px) saturate(180%);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px
+    }
+
+    .header-left svg {
+      width: 38px;
+      height: 38px;
+      filter: drop-shadow(0 0 14px var(--accent-glow))
+    }
+
+    .header-left h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      background: linear-gradient(135deg, #fff 30%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .send-btn-header {
+      padding: 10px 20px;
+      border: none;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      font-family: var(--font);
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 2px 12px var(--accent-glow);
+      transition: all .25s;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      white-space: nowrap;
+    }
+
+    .send-btn-header:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(10, 132, 255, .4)
+    }
+
+    .send-btn-header:active {
+      transform: scale(.97)
+    }
+
+    /* ===== Section Title ===== */
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 3px;
+      height: 14px;
+      background: linear-gradient(180deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+    }
+
+    /* ===== 账号卡片区（顶部小卡片） ===== */
+    .top-cards {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+      animation: fadeUp .5s ease both;
+    }
+
+    .top-card {
+      flex: 0 0 auto;
+      min-width: 180px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      cursor: pointer;
+      transition: all .25s;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+    }
+
+    .top-card:hover {
+      background: var(--glass-hi);
+      border-color: var(--border-hi);
+      transform: translateY(-2px)
+    }
+
+    .top-card .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+      margin-right: 7px;
+      box-shadow: 0 0 6px var(--green)
+    }
+
+    .top-card .name {
+      font-size: 13px;
+      font-weight: 600
+    }
+
+    .top-card .hint {
+      font-size: 11px;
+      color: var(--text2);
+      margin-top: 3px
+    }
+
+    .card-add {
+      border: 1.5px dashed rgba(255, 255, 255, .1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      min-height: 60px;
+    }
+
+    .card-add:hover {
+      border-color: var(--accent);
+      color: var(--accent)
+    }
+
+    .card-add .plus {
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 300;
+      opacity: .5
+    }
+
+    .card-add span {
+      font-size: 11px;
+      opacity: .4
+    }
+
+    /* ===== 账户独立邮件卡片 Grid ===== */
+    .account-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      animation: fadeUp .55s ease both;
+    }
+
+    .account-card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: all .3s;
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+    }
+
+    .account-card:hover {
+      border-color: var(--border-hi)
+    }
+
+    .account-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: linear-gradient(135deg, rgba(10, 132, 255, 0.06), rgba(94, 92, 230, 0.04));
+      border-bottom: 1px solid var(--border);
+    }
+
+    .account-card-header .acc-info {
+      display: flex;
+      align-items: center;
+      gap: 10px
+    }
+
+    .account-card-header .acc-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green)
+    }
+
+    .account-card-header .acc-name {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.2px
+    }
+
+    .account-card-header .acc-badge {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: rgba(48, 209, 88, 0.12);
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    /* 卡片内 Tab */
+    .card-tabs {
+      display: flex;
+      gap: 0;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    .card-tab {
+      flex: 1;
+      padding: 8px 0;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 500;
+      border: none;
+      background: none;
+      color: var(--text2);
+      cursor: pointer;
+      border-radius: var(--radius-xs);
+      transition: all .2s;
+      font-family: var(--font);
+    }
+
+    .card-tab.active {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08)
+    }
+
+    /* 卡片内邮件列表 */
+    .card-mail-list {
+      max-height: 420px;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .mail-item {
+      padding: 12px 14px;
+      margin-bottom: 6px;
+      border-radius: var(--radius-xs);
+      cursor: default;
+      transition: all .2s;
+      border: 1px solid transparent;
+    }
+
+    .mail-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: var(--border)
+    }
+
+    .mail-item.unread {
+      border-left: 3px solid var(--accent)
+    }
+
+    .mail-item .mail-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px
+    }
+
+    .mail-item .sender {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 60%
+    }
+
+    .mail-item .time {
+      font-size: 11px;
+      color: var(--text2);
+      flex-shrink: 0
+    }
+
+    .mail-item .subject {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .mail-item .preview {
+      font-size: 11px;
+      color: var(--text2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .mail-item .mail-detail {
+      display: none;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text2);
+    }
+
+    .mail-item .mail-detail .detail-row {
+      margin-bottom: 4px;
+    }
+
+    .mail-item .mail-detail .detail-label {
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .mail-item .mail-detail .detail-body {
+      margin-top: 8px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .mail-item.expanded .mail-detail {
+      display: block;
+    }
+
+    .mail-item.expanded .preview {
+      display: none;
+    }
+
+    .mail-item.expanded {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: var(--accent);
+    }
+
+    .mail-empty {
+      text-align: center;
+      padding: 48px 0;
+      color: var(--text2);
+      font-size: 13px
+    }
+
+    .mail-loading {
+      text-align: center;
+      padding: 48px 0;
+      color: var(--text2);
+      font-size: 13px;
+      animation: pulse 1.2s infinite
+    }
+
+    /* ===== 弹窗 ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.show {
+      display: flex
+    }
+
+    .modal {
+      width: 92%;
+      max-width: 500px;
+      background: rgba(20, 20, 28, .95);
+      border: 1px solid var(--border-hi);
+      border-radius: 20px;
+      padding: 28px;
+      backdrop-filter: blur(40px) saturate(200%);
+      -webkit-backdrop-filter: blur(40px) saturate(200%);
+      animation: modalIn .3s cubic-bezier(.4, 0, .2, 1) both;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .6);
+    }
+
+    .modal h2 {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .modal h2 .close {
+      cursor: pointer;
+      font-size: 20px;
+      opacity: .4;
+      transition: opacity .2s;
+      background: none;
+      border: none;
+      color: var(--text)
+    }
+
+    .modal h2 .close:hover {
+      opacity: 1
+    }
+
+    .modal label {
+      display: block;
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 5px;
+      margin-top: 14px;
+      font-weight: 500
+    }
+
+    .modal label:first-of-type {
+      margin-top: 0
+    }
+
+    .modal input,
+    .modal textarea,
+    .modal select {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: var(--radius-xs);
+      border: 1px solid var(--border);
+      background: rgba(0, 0, 0, .35);
+      color: var(--text);
+      font-size: 13px;
+      font-family: var(--font);
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    .modal input:focus,
+    .modal textarea:focus,
+    .modal select:focus {
+      border-color: var(--accent)
+    }
+
+    .modal textarea {
+      resize: vertical;
+      min-height: 120px
+    }
+
+    .modal .modal-send {
+      margin-top: 20px;
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+      font-family: var(--font);
+    }
+
+    .modal .modal-send:hover {
+      box-shadow: 0 4px 20px var(--accent-glow)
+    }
+
+    .modal .modal-send:disabled {
+      opacity: .45;
+      cursor: not-allowed
+    }
+
+    .modal-add input {
+      margin-bottom: 0
+    }
+
+    .modal-add .modal-send {
+      margin-top: 16px
+    }
+
+    option {
+      background: #1a1a24;
+      color: #fff
+    }
+
+    /* ===== Toast ===== */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      border-radius: var(--radius-sm);
+      background: rgba(20, 20, 28, .92);
+      border: 1px solid var(--border-hi);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      font-size: 13px;
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity .3s;
+      pointer-events: none;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
+    }
+
+    .toast.show {
+      opacity: 1
+    }
+
+    /* ===== Scrollbar ===== */
+    ::-webkit-scrollbar {
+      width: 5px
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, .1);
+      border-radius: 3px
+    }
+
+    /* ===== Responsive ===== */
+    @media(max-width:480px) {
+      .container {
+        width: 95%;
+        padding: 16px 14px 40px
+      }
+
+      .header {
+        padding: 12px 16px;
+        flex-direction: column;
+        gap: 12px
+      }
+
+      .send-btn-header {
+        width: 100%;
+        justify-content: center
+      }
+
+      .account-grid {
+        grid-template-columns: 1fr
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <!-- Header + 发送按钮 -->
+    <div class="header">
+      <div class="header-left">
+        <svg viewBox="0 0 38 38" fill="none">
+          <rect width="38" height="38" rx="10" fill="url(#hg1)" />
+          <path d="M10 13l9 6.5L28 13M10 25V13h18v12H10z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" />
+          <defs>
+            <linearGradient id="hg1" x1="0" y1="0" x2="38" y2="38">
+              <stop stop-color="#0a84ff" />
+              <stop offset="1" stop-color="#5e5ce6" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <h1>Outlook 邮件中枢</h1>
+      </div>
+      <button class="send-btn-header" id="sendBtn" onclick="openSendModal()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+        </svg>
+        发送新邮件
+      </button>
+    </div>
+
+    <!-- 账号卡片区 -->
+    <div class="section-title">已绑定账号</div>
+    <div class="top-cards" id="topCards"></div>
+
+    <!-- 邮件区：每个账户独立卡片 -->
+    <div class="section-title" style="margin-top:8px">邮件总览</div>
+    <div class="account-grid" id="accountGrid">
+      <div class="mail-empty">加载中...</div>
+    </div>
+  </div>
+
+  <!-- 发送邮件弹窗 -->
+  <div class="modal-overlay" id="sendOverlay">
+    <div class="modal">
+      <h2>✉️ 发送邮件 <button class="close" onclick="closeSendModal()">&times;</button></h2>
+      <label>发送账号</label>
+      <select id="sendAccSel"></select>
+      <label>收件人 (多人用逗号分隔)</label>
+      <input type="text" id="sendTo" placeholder="example@outlook.com">
+      <label>主题</label>
+      <input type="text" id="sendSubject" placeholder="邮件主题">
+      <label>正文</label>
+      <textarea id="sendBody" placeholder="输入邮件内容..."></textarea>
+      <button class="modal-send" id="doSendBtn" onclick="doSend()">发送</button>
+    </div>
+  </div>
+
+  <!-- 添加账号弹窗 -->
+  <div class="modal-overlay" id="addOverlay">
+    <div class="modal modal-add">
+      <h2>添加新账号 <button class="close" onclick="closeAddModal()">&times;</button></h2>
+      <label>账号别名 (例: work@outlook.com)</label>
+      <input type="text" id="addAccName" placeholder="输入 Outlook 邮箱地址">
+      <button class="modal-send" onclick="startAuth()">授权并绑定</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let accounts = [];
+    // 每个账户独立维护当前 tab: { accountName: 'inbox' | 'junk' }
+    let accountTabs = {};
+    // 每个账户的邮件缓存
+    let accountMails = {};
+
+    /* ===== Toast ===== */
+    function toast(msg, dur = 2500) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.add('show');
+      clearTimeout(t._tid);
+      t._tid = setTimeout(() => t.classList.remove('show'), dur);
+    }
+
+    /* ===== 账号列表 ===== */
+    function loadAccounts() {
+      fetch('/api/list').then(r => r.json()).then(d => {
+        accounts = d.active_accounts || [];
+        renderTopCards();
+        renderSendSelector();
+        renderAccountGrid();
+      }).catch(e => toast('获取账号失败: ' + e.message));
+    }
+
+    function renderTopCards() {
+      const c = document.getElementById('topCards');
+      let h = '';
+      accounts.forEach(a => {
+        h += `<div class="top-card" onclick="scrollToCard('${a}')">
+      <div><span class="dot"></span><span class="name">${a}</span></div>
+      <div class="hint">已授权</div>
+    </div>`;
+      });
+      h += `<div class="top-card card-add" onclick="openAddModal()">
+    <span class="plus">+</span><span>添加账号</span>
+  </div>`;
+      c.innerHTML = h;
+    }
+
+    function scrollToCard(name) {
+      const el = document.getElementById('acc-card-' + CSS.escape(name));
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function renderSendSelector() {
+      const opts = accounts.map(a => `<option value="${a}">${a}</option>`).join('');
+      document.getElementById('sendAccSel').innerHTML = opts || '<option value="">暂无账号</option>';
+    }
+
+    /* ===== 账户独立卡片 Grid ===== */
+    function renderAccountGrid() {
+      const grid = document.getElementById('accountGrid');
+      if (!accounts.length) {
+        grid.innerHTML = '<div class="mail-empty">暂无账号，请先添加</div>';
+        return;
+      }
+      let h = '';
+      accounts.forEach(acc => {
+        if (!accountTabs[acc]) accountTabs[acc] = 'inbox';
+        const inboxActive = accountTabs[acc] === 'inbox' ? 'active' : '';
+        const junkActive = accountTabs[acc] === 'junk' ? 'active' : '';
+        h += `<div class="account-card" id="acc-card-${CSS.escape(acc)}">
+      <div class="account-card-header">
+        <div class="acc-info">
+          <div class="acc-dot"></div>
+          <span class="acc-name">${acc}</span>
+        </div>
+        <span class="acc-badge">已授权</span>
+      </div>
+      <div class="card-tabs">
+        <button class="card-tab ${inboxActive}" onclick="switchCardTab('${acc}','inbox',this)">📥 收件箱</button>
+        <button class="card-tab ${junkActive}" onclick="switchCardTab('${acc}','junk',this)">🗑️ 垃圾邮件</button>
+      </div>
+      <div class="card-mail-list" id="mail-list-${CSS.escape(acc)}">
+        <div class="mail-loading">加载中...</div>
+      </div>
+    </div>`;
+      });
+      grid.innerHTML = h;
+      // 加载每个账户的邮件
+      accounts.forEach(acc => loadMailForAccount(acc));
+    }
+
+    function switchCardTab(acc, tab, btnEl) {
+      accountTabs[acc] = tab;
+      // 更新 tab 样式
+      const card = btnEl.closest('.account-card');
+      card.querySelectorAll('.card-tab').forEach(b => b.classList.remove('active'));
+      btnEl.classList.add('active');
+      loadMailForAccount(acc);
+    }
+
+    function loadMailForAccount(acc) {
+      const tab = accountTabs[acc] || 'inbox';
+      const listEl = document.getElementById('mail-list-' + CSS.escape(acc));
+      if (!listEl) return;
+      listEl.innerHTML = '<div class="mail-loading">加载中...</div>';
+
+      fetch(`/api/mail/${encodeURIComponent(acc)}/${tab}`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.error) { listEl.innerHTML = `<div class="mail-empty">⚠️ ${esc(d.error)}</div>`; return; }
+          renderMailList(listEl, d.messages || []);
+        })
+        .catch(e => { listEl.innerHTML = `<div class="mail-empty">加载失败: ${esc(e.message)}</div>`; });
+    }
+
+    function renderMailList(container, msgs) {
+      if (!msgs.length) { container.innerHTML = '<div class="mail-empty">📭 暂无邮件</div>'; return; }
+      container.innerHTML = msgs.map((m, idx) => {
+        const cls = m.is_read ? '' : 'unread';
+        const sender = m.sender_name || m.sender_addr || '未知';
+        const senderAddr = m.sender_addr || '';
+        const time = fmtTime(m.received);
+        const fullTime = m.received ? new Date(m.received).toLocaleString('zh-CN') : '';
+        return `<div class="mail-item ${cls}" onclick="toggleMailDetail(this)">
+      <div class="mail-head"><span class="sender">${esc(sender)}</span><span class="time">${time}</span></div>
+      <div class="subject">${esc(m.subject)}</div>
+      <div class="preview">${esc(m.preview)}</div>
+      <div class="mail-detail">
+        <div class="detail-row"><span class="detail-label">👤 发件人：</span>${esc(sender)} &lt;${esc(senderAddr)}&gt;</div>
+        <div class="detail-row"><span class="detail-label">🕐 时间：</span>${fullTime}</div>
+        <div class="detail-row"><span class="detail-label">📋 主题：</span>${esc(m.subject)}</div>
+        <div class="detail-label" style="margin-top:8px">📝 内容：</div>
+        <div class="detail-body">${esc(m.preview)}</div>
+      </div>
+    </div>`;
+      }).join('');
+    }
+
+    function toggleMailDetail(el) {
+      el.classList.toggle('expanded');
+    }
+
+    function fmtTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const now = new Date();
+      const diff = now - d;
+      if (diff < 3600000) return Math.max(1, Math.floor(diff / 60000)) + '分钟前';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+      if (diff < 604800000) return Math.floor(diff / 86400000) + '天前';
+      return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+    }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    /* ===== 发信弹窗 ===== */
+    function openSendModal() {
+      if (!accounts.length) { toast('请先添加账号'); return; }
+      document.getElementById('sendOverlay').classList.add('show');
+    }
+    function closeSendModal() { document.getElementById('sendOverlay').classList.remove('show') }
+    function doSend() {
+      const acc = document.getElementById('sendAccSel').value;
+      const to = document.getElementById('sendTo').value.trim();
+      const subj = document.getElementById('sendSubject').value.trim();
+      const body = document.getElementById('sendBody').value;
+      if (!to || !subj) { toast('收件人和主题不能为空'); return; }
+      const btn = document.getElementById('doSendBtn');
+      btn.disabled = true; btn.textContent = '发送中...';
+      fetch(`/api/mail/${encodeURIComponent(acc)}/send`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, subject: subj, body })
+      }).then(r => r.json()).then(d => {
+        if (d.error) { toast('❌ ' + d.error); }
+        else {
+          toast('✅ 邮件已发送'); closeSendModal();
+          document.getElementById('sendTo').value = '';
+          document.getElementById('sendSubject').value = '';
+          document.getElementById('sendBody').value = '';
+        }
+      }).catch(e => toast('发送失败: ' + e.message))
+        .finally(() => { btn.disabled = false; btn.textContent = '发送'; });
+    }
+
+    /* ===== 添加账号弹窗 ===== */
+    function openAddModal() { document.getElementById('addOverlay').classList.add('show') }
+    function closeAddModal() { document.getElementById('addOverlay').classList.remove('show') }
+    function startAuth() {
+      const name = document.getElementById('addAccName').value.trim();
+      if (!name) { toast('请输入账号别名'); return; }
+      toast('正在生成授权链接...');
+      const authWin = window.open('about:blank', '_blank');
+      if (authWin) authWin.document.write('<body style="background:#08080f;color:#0a84ff;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh"><p>正在跳转至微软登录...</p></body>');
+
+      fetch(`/api/auth/${encodeURIComponent(name)}`)
+        .then(r => r.json()).then(d => {
+          if (d.auth_url && authWin) { authWin.location.href = d.auth_url; closeAddModal(); }
+          else { toast('❌ ' + (d.message || '未知错误')); if (authWin) authWin.close(); }
+        }).catch(e => { toast('请求失败: ' + e.message); if (authWin) authWin.close(); });
+    }
+
+    /* 接收授权完成通知 */
+    window.addEventListener('message', e => {
+      if (e.data === 'refresh') {
+        toast('✅ 账号授权成功！');
+        document.getElementById('addAccName').value = '';
+        loadAccounts();
+      }
+    });
+
+    /* ===== 初始化 ===== */
+    loadAccounts();
+  </script>
+</body>
+
+</html>
